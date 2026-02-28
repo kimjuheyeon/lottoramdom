@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 빅데이터 로또 번호 추천</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 50%, #FFF5F5 100%);
+    min-height: 100vh;
+    color: #1A1A1A;
+  }
+
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 32px; }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(135deg, #E53935, #FF7043);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 100px;
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+    box-shadow: 0 2px 8px rgba(229,57,53,0.35);
+  }
+
+  .badge::before { content: "✦"; font-size: 10px; }
+
+  h1 {
+    font-size: clamp(22px, 5vw, 32px);
+    font-weight: 900;
+    line-height: 1.25;
+    background: linear-gradient(135deg, #E53935, #FF7043);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 10px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Main card */
+  .card {
+    background: #fff;
+    border-radius: 24px;
+    padding: 32px 24px;
+    box-shadow: 0 4px 32px rgba(229,57,53,0.10), 0 1px 4px rgba(229,57,53,0.06);
+    border: 1.5px solid rgba(229,57,53,0.12);
+    margin-bottom: 20px;
+  }
+
+  /* Drum */
+  .drum-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 28px;
+  }
+
+  .drum {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff8f8, #ffe8e8 60%, #ffcdd2);
+    border: 3px solid #E53935;
+    box-shadow: 0 0 0 6px rgba(229,57,53,0.08), inset 0 4px 20px rgba(229,57,53,0.12), 0 8px 32px rgba(229,57,53,0.18);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .drum-inner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+
+  .drum-ball {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: inset -3px -3px 6px rgba(0,0,0,0.2), inset 2px 2px 4px rgba(255,255,255,0.4), 0 2px 6px rgba(0,0,0,0.15);
+    transform-origin: center;
+    will-change: transform;
+  }
+
+  .drum-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.5) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .drum-opening {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 30px;
+    background: linear-gradient(to bottom, #E53935, #b71c1c);
+    border-radius: 50% 50% 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  @keyframes drumSpin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @keyframes drumSpinFast {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .drum-inner.spinning {
+    animation: drumSpin 1.2s linear infinite;
+  }
+
+  .drum-inner.spinning-fast {
+    animation: drumSpinFast 0.4s linear infinite;
+  }
+
+  /* Status text */
+  .status-text {
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #E53935;
+    min-height: 22px;
+    margin-bottom: 20px;
+    letter-spacing: 0.01em;
+  }
+
+  /* Result slots */
+  .result-slots {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-height: 64px;
+    margin-bottom: 28px;
+  }
+
+  .slot {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    border: 2.5px dashed #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: transparent;
+    transition: all 0.3s;
+    background: #f9f9f9;
+    flex-shrink: 0;
+  }
+
+  .slot.filled {
+    border-style: solid;
+    border-color: transparent;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.25);
+    box-shadow: inset -3px -4px 8px rgba(0,0,0,0.18), inset 2px 3px 6px rgba(255,255,255,0.35), 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  @keyframes ballLand {
+    0%   { transform: scale(0) translateY(-30px); opacity: 0; }
+    60%  { transform: scale(1.18) translateY(4px); opacity: 1; }
+    80%  { transform: scale(0.92) translateY(-2px); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .slot.land {
+    animation: ballLand 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    display: block;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #E53935, #FF7043);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 16px rgba(229,57,53,0.4);
+    letter-spacing: 0.01em;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 24px rgba(229,57,53,0.5);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px;
+    background: #fff;
+    color: #E53935;
+    border: 2px solid #E53935;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 12px;
+  }
+
+  .btn-secondary:hover {
+    background: #FFF5F5;
+  }
+
+  .copy-msg {
+    text-align: center;
+    font-size: 12px;
+    color: #4CAF50;
+    font-weight: 600;
+    min-height: 18px;
+    margin-top: 8px;
+  }
+
+  /* Particles */
+  #particle-canvas {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* History */
+  .history-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 20px 20px;
+    box-shadow: 0 2px 16px rgba(229,57,53,0.07);
+    border: 1.5px solid rgba(229,57,53,0.08);
+  }
+
+  .history-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #888;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .history-title::before { content: "🕐"; font-size: 13px; }
+
+  .history-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #FFF5F5;
+    border-radius: 12px;
+    flex-wrap: wrap;
+  }
+
+  .history-idx {
+    font-size: 11px;
+    font-weight: 700;
+    color: #E53935;
+    min-width: 28px;
+  }
+
+  .history-balls { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  .mini-ball {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 28px;
+    font-size: 11px;
+    color: #bbb;
+    line-height: 1.7;
+  }
+
+  @media (max-width: 400px) {
+    .slot { width: 46px; height: 46px; font-size: 14px; }
+    .result-slots { gap: 7px; }
+    .drum { width: 180px; height: 180px; }
+    .drum-ball { width: 30px; height: 30px; font-size: 9px; }
+  }
+
+  /* Shine animation on generate */
+  @keyframes shine {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+
+  .btn-primary.loading {
+    background: linear-gradient(90deg, #E53935, #FF7043, #E53935, #FF7043);
+    background-size: 200% auto;
+    animation: shine 1.2s linear infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%   { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.3); opacity: 0; }
+  }
+
+  .drum.active::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 3px solid rgba(229,57,53,0.4);
+    animation: pulse-ring 1s ease-out infinite;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="particle-canvas"></canvas>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">AI 빅데이터 분석</div>
+    <h1>AI 빅데이터<br>로또 번호 추천</h1>
+    <p class="subtitle">역대 로또 당첨 번호 1,100회 이상의 빅데이터를 딥러닝으로 학습한 AI가<br>당신만의 행운 번호를 추천합니다.</p>
+  </div>
+
+  <!-- Main card -->
+  <div class="card">
+    <!-- Drum machine -->
+    <div class="drum-wrapper">
+      <div class="drum" id="drum">
+        <div class="drum-inner" id="drumInner"></div>
+        <div class="drum-overlay"></div>
+        <div class="drum-opening">🎱</div>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-text" id="statusText">번호 추첨 버튼을 눌러주세요</div>
+
+    <!-- Result slots -->
+    <div class="result-slots" id="resultSlots">
+      <div class="slot" id="slot0"></div>
+      <div class="slot" id="slot1"></div>
+      <div class="slot" id="slot2"></div>
+      <div class="slot" id="slot3"></div>
+      <div class="slot" id="slot4"></div>
+      <div class="slot" id="slot5"></div>
+    </div>
+
+    <!-- Generate button -->
+    <button class="btn-primary" id="generateBtn" onclick="startDraw()">
+      🎰 행운 번호 추첨하기
+    </button>
+
+    <!-- Share button (hidden until result) -->
+    <button class="btn-secondary" id="shareBtn" style="display:none" onclick="copyResult()">
+      📋 번호 복사하기
+    </button>
+    <div class="copy-msg" id="copyMsg"></div>
+  </div>
+
+  <!-- History -->
+  <div class="history-card" id="historyCard" style="display:none">
+    <div class="history-title">최근 추첨 기록</div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    본 서비스는 오락 목적이며, 당첨을 보장하지 않습니다.<br>
+    로또는 사행행위이므로 과도한 구매를 자제해 주세요.
+  </div>
+</div>
+
+<script>
+// ── Color map ──────────────────────────────────────────────
+function getBallColor(n) {
+  if (n <= 10) return { bg: '#FFC107', shadow: '#e6a800' };
+  if (n <= 20) return { bg: '#2196F3', shadow: '#1565c0' };
+  if (n <= 30) return { bg: '#F44336', shadow: '#b71c1c' };
+  if (n <= 40) return { bg: '#9E9E9E', shadow: '#616161' };
+  return          { bg: '#4CAF50', shadow: '#2e7d32' };
+}
+
+function applyBallStyle(el, num) {
+  const c = getBallColor(num);
+  el.style.background = `radial-gradient(circle at 35% 30%, ${lighten(c.bg)}, ${c.bg} 60%, ${c.shadow})`;
+}
+
+function lighten(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, ((n >> 16) & 0xff) + 60);
+  const g = Math.min(255, ((n >>  8) & 0xff) + 60);
+  const b = Math.min(255, ( n        & 0xff) + 60);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── Lotto logic ────────────────────────────────────────────
+function generateLottoNumbers() {
+  const nums = new Set();
+  while (nums.size < 6) {
+    nums.add(Math.floor(Math.random() * 45) + 1);
+  }
+  return [...nums].sort((a, b) => a - b);
+}
+
+// ── Web Audio (짧은 뿅 소리) ───────────────────────────────
+let audioCtx = null;
+
+function playPop(freq = 520) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.6, audioCtx.currentTime + 0.05);
+    gain.gain.setValueAtTime(0.22, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.22);
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.25);
+  } catch(e) {}
+}
+
+function playFanfare() {
+  const freqs = [523, 659, 784, 1047];
+  freqs.forEach((f, i) => setTimeout(() => playPop(f), i * 80));
+}
+
+// ── Drum balls ─────────────────────────────────────────────
+const DRUM_BALL_COUNT = 14;
+let drumBalls = [];
+
+function initDrumBalls() {
+  const inner = document.getElementById('drumInner');
+  inner.innerHTML = '';
+  drumBalls = [];
+  for (let i = 0; i < DRUM_BALL_COUNT; i++) {
+    const num = Math.floor(Math.random() * 45) + 1;
+    const el = document.createElement('div');
+    el.className = 'drum-ball';
+    el.textContent = num;
+    applyBallStyle(el, num);
+
+    // Random starting position inside the drum
+    const angle = (i / DRUM_BALL_COUNT) * 2 * Math.PI;
+    const radius = 55 + Math.random() * 35;
+    const cx = 110 + Math.cos(angle) * radius - 18;
+    const cy = 110 + Math.sin(angle) * radius - 18;
+    el.style.left = cx + 'px';
+    el.style.top  = cy + 'px';
+
+    inner.appendChild(el);
+    drumBalls.push({ el, cx, cy, angle, radius, speed: 0.03 + Math.random() * 0.02 });
+  }
+}
+
+let drumAnimId = null;
+let drumAngle = 0;
+let drumPhase = 'idle'; // idle | fast | slow
+
+function animateDrum(speed) {
+  drumAngle += speed;
+  drumBalls.forEach((b, i) => {
+    b.angle += b.speed * (speed / 0.04);
+    const r = b.radius + Math.sin(drumAngle * 3 + i) * 8;
+    const x = 110 + Math.cos(b.angle) * r - 18;
+    const y = 110 + Math.sin(b.angle) * r - 18;
+    b.el.style.left = x + 'px';
+    b.el.style.top  = y + 'px';
+  });
+}
+
+let drumSpeedTarget = 0.04;
+let drumSpeedCurrent = 0.04;
+
+function drumLoop() {
+  drumSpeedCurrent += (drumSpeedTarget - drumSpeedCurrent) * 0.03;
+  animateDrum(drumSpeedCurrent);
+  drumAnimId = requestAnimationFrame(drumLoop);
+}
+
+function startDrumSpin(fast) {
+  drumSpeedTarget = fast ? 0.22 : 0.04;
+  if (!drumAnimId) drumLoop();
+}
+
+function stopDrum() {
+  if (drumAnimId) { cancelAnimationFrame(drumAnimId); drumAnimId = null; }
+}
+
+// ── Main draw flow ─────────────────────────────────────────
+let isAnimating = false;
+const history = [];
+
+function startDraw() {
+  if (isAnimating) return;
+  isAnimating = true;
+
+  // Reset UI
+  const btn = document.getElementById('generateBtn');
+  const shareBtn = document.getElementById('shareBtn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = '🎰 AI 분석 중...';
+  shareBtn.style.display = 'none';
+  document.getElementById('copyMsg').textContent = '';
+
+  for (let i = 0; i < 6; i++) {
+    const slot = document.getElementById('slot' + i);
+    slot.className = 'slot';
+    slot.textContent = '';
+    slot.style.background = '';
+  }
+
+  const drum = document.getElementById('drum');
+  drum.classList.add('active');
+
+  // Init drum
+  initDrumBalls();
+  startDrumSpin(true);
+
+  const numbers = generateLottoNumbers();
+
+  // Status messages
+  const statuses = ['AI 빅데이터 분석 중...', '1,100회 데이터 학습 중...', '최적 번호 계산 중...', '행운 번호 확정!'];
+  let si = 0;
+  const statusEl = document.getElementById('statusText');
+  statusEl.textContent = statuses[0];
+  const statusInterval = setInterval(() => {
+    si = (si + 1) % statuses.length;
+    statusEl.textContent = statuses[si];
+  }, 600);
+
+  // t=2.0s: slow down drum
+  setTimeout(() => {
+    drumSpeedTarget = 0.025;
+  }, 2000);
+
+  // t=2.5s~5.0s: balls pop out
+  setTimeout(() => {
+    clearInterval(statusInterval);
+    statusEl.textContent = '행운 번호 확정!';
+    drumSpeedTarget = 0.01;
+
+    numbers.forEach((num, idx) => {
+      setTimeout(() => {
+        popBall(idx, num);
+        playPop(420 + idx * 40);
+      }, idx * 500);
+    });
+
+    // t=5.2s: done
+    setTimeout(() => {
+      stopDrum();
+      drum.classList.remove('active');
+      playFanfare();
+      launchParticles();
+
+      btn.disabled = false;
+      btn.classList.remove('loading');
+      btn.textContent = '🎰 다시 뽑기';
+      shareBtn.style.display = 'flex';
+
+      addHistory(numbers);
+      isAnimating = false;
+    }, numbers.length * 500 + 200);
+  }, 2500);
+}
+
+function popBall(idx, num) {
+  const slot = document.getElementById('slot' + idx);
+  const c = getBallColor(num);
+  slot.className = 'slot filled land';
+  slot.textContent = num;
+  slot.style.background = `radial-gradient(circle at 35% 30%, ${lighten(c.bg)}, ${c.bg} 60%, ${c.shadow})`;
+  slot.style.borderColor = c.bg;
+  // Remove animation class after it plays
+  slot.addEventListener('animationend', () => {
+    slot.classList.remove('land');
+  }, { once: true });
+}
+
+// ── Particle effect ────────────────────────────────────────
+function launchParticles() {
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#E53935', '#FF7043', '#FFC107', '#2196F3', '#4CAF50', '#FF8F00'];
+  const particles = [];
+
+  for (let i = 0; i < 120; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: -10 - Math.random() * 100,
+      r: 4 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: (Math.random() - 0.5) * 4,
+      vy: 2 + Math.random() * 4,
+      gravity: 0.12,
+      alpha: 1,
+      rot: Math.random() * Math.PI * 2,
+      rotV: (Math.random() - 0.5) * 0.2,
+      shape: Math.random() > 0.5 ? 'circle' : 'rect'
+    });
+  }
+
+  let start = null;
+  const duration = 2800;
+
+  function draw(ts) {
+    if (!start) start = ts;
+    const elapsed = ts - start;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      p.x  += p.vx;
+      p.y  += p.vy;
+      p.vy += p.gravity;
+      p.rot += p.rotV;
+      p.alpha = Math.max(0, 1 - elapsed / duration);
+
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      if (p.shape === 'circle') {
+        ctx.beginPath();
+        ctx.arc(0, 0, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+      }
+      ctx.restore();
+    });
+
+    ctx.globalAlpha = 1;
+
+    if (elapsed < duration) {
+      requestAnimationFrame(draw);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+
+// ── History ────────────────────────────────────────────────
+function addHistory(numbers) {
+  history.unshift(numbers);
+  if (history.length > 5) history.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  const card = document.getElementById('historyCard');
+  const list = document.getElementById('historyList');
+
+  if (history.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = '';
+
+  history.forEach((nums, i) => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+
+    const idx = document.createElement('div');
+    idx.className = 'history-idx';
+    idx.textContent = `#${i + 1}`;
+    item.appendChild(idx);
+
+    const balls = document.createElement('div');
+    balls.className = 'history-balls';
+    nums.forEach(n => {
+      const b = document.createElement('div');
+      b.className = 'mini-ball';
+      b.textContent = n;
+      applyBallStyle(b, n);
+      balls.appendChild(b);
+    });
+    item.appendChild(balls);
+    list.appendChild(item);
+  });
+}
+
+// ── Copy ───────────────────────────────────────────────────
+function copyResult() {
+  if (history.length === 0) return;
+  const nums = history[0].join(', ');
+  const text = `🎰 AI 로또 추천 번호: ${nums}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById('copyMsg');
+    msg.textContent = '✅ 클립보드에 복사되었습니다!';
+    setTimeout(() => { msg.textContent = ''; }, 2500);
+  }).catch(() => {
+    const msg = document.getElementById('copyMsg');
+    msg.textContent = `추천 번호: ${nums}`;
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────
+initDrumBalls();
+</script>
+</body>
+</html>
